@@ -155,13 +155,6 @@ export const transcribeAudio = async (audioFile, options = {}) => {
  */
 export const processTranscription = async (text, task = 'format') => {
   try {
-    // Get API key from environment
-    const apiKey = import.meta.env.VITE_HF_API_KEY || '';
-    
-    if (!apiKey) {
-      throw new Error('API key is required for AI processing');
-    }
-    
     // Define the prompt based on the task
     let prompt = '';
     
@@ -178,6 +171,7 @@ export const processTranscription = async (text, task = 'format') => {
           prompt = `IMPORTANT: Create a verbatim transcript of this audio with minimal edits. Only fix grammar, punctuation, and capitalization. Maintain the exact wording and speaking style of the original. Create proper paragraphs where natural pauses occur. DO NOT summarize or change any content. DO NOT add any interpretations. The result should look like a professional transcript that preserves the speaker's exact words and style:\n\n${text}`;
           break;
         case 'summarize':
+        case 'summary': // Added 'summary' as an alias for summarize
           prompt = `IMPORTANT: Create a concise executive summary (30-40% of original length) that captures ONLY the most essential points. Start with a one-sentence overview. Then include 3-5 key takeaways as short paragraphs. Focus on conclusions and main arguments, NOT supporting details. The summary should be significantly shorter than the original while capturing its essence. Use formal, professional language:\n\n${text}`;
           break;
         case 'email':
@@ -187,6 +181,7 @@ export const processTranscription = async (text, task = 'format') => {
           prompt = `IMPORTANT: Convert this transcription into structured meeting notes with EXACTLY this format: 1) "MEETING SUMMARY" section with date, time, and objective if mentioned, 2) "PARTICIPANTS" section listing all mentioned attendees, 3) "DISCUSSION TOPICS" section with H3 headings for each major topic and bullet points underneath, 4) "ACTION ITEMS" section with assigned tasks, owners, and deadlines in a table format, 5) "NEXT STEPS" section with upcoming meetings or follow-ups. Use professional, concise language throughout:\n\n${text}`;
           break;
         case 'bullet_points':
+        case 'bullets': // Added 'bullets' as an alias for bullet_points
           prompt = `IMPORTANT: Transform this transcription into a hierarchical bullet point structure with these EXACT elements: 1) Main topics as level 1 bullets with emoji icons, 2) Subtopics as level 2 bullets (indented with dashes), 3) Key details as level 3 bullets (further indented with asterisks). Ensure bullets are concise (max 15 words each). Group related points together. Use parallel grammar structure for all bullets at the same level. The result should be a visually organized, scannable document:\n\n${text}`;
           break;
         case 'action_items':
@@ -195,52 +190,99 @@ export const processTranscription = async (text, task = 'format') => {
         case 'qa_format':
           prompt = `IMPORTANT: Restructure this transcription into a formal Q&A document with EXACTLY this format: 1) Each question prefixed with "Q:" in bold, 2) Each answer prefixed with "A:" in regular text, 3) Questions and answers grouped by topic with topic headings, 4) Similar questions consolidated, 5) Answers expanded to provide complete information. Ensure technical accuracy and professional language. The result should look like an official FAQ or interview transcript:\n\n${text}`;
           break;
+        case 'note': // Added specific case for 'note' style
+          prompt = `IMPORTANT: Transform this transcription into a concise, well-structured note. Format with clear headings, short paragraphs, and emphasis on key points. Maintain the essential information while making it more readable and organized. The result should be a clean, professional note that captures the main ideas:\n\n${text}`;
+          break;
         default:
           prompt = `Process the following transcription according to standard formatting rules:\n\n${text}`;
       }
     }
     
-    // Make the API request to our text processing service
-    const response = await fetch('https://api-inference.huggingface.co/models/google/flan-t5-xl', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 1024,
-          temperature: 0.7,
-          top_p: 0.95,
-          do_sample: true
-        }
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = 'Failed to process transcription';
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.error || errorData.message || errorMessage;
-      } catch (e) {
-        // If parsing fails, use the error text directly
-        errorMessage = errorText || errorMessage;
+    try {
+      // Use Hugging Face API for text processing
+      console.log('Processing text with Hugging Face API...');
+      
+      // Get API key from environment
+      const apiKey = import.meta.env.VITE_HF_API_KEY || '';
+      
+      if (!apiKey) {
+        throw new Error('API key is required for text processing. Please add your Hugging Face API key to the .env file as VITE_HF_API_KEY.');
       }
-      throw new Error(errorMessage);
-    }
-    
-    const data = await response.json();
-    // Handle different response formats from the API
-    if (Array.isArray(data)) {
-      return data[0]?.generated_text || text;
-    } else {
-      return data.generated_text || data.text || text;
+      
+      // Make the API request to Hugging Face
+      // Using a more reliable model for text processing
+      const response = await fetch('https://api-inference.huggingface.co/models/google/flan-t5-xl', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 1024,
+            temperature: 0.7,
+            top_p: 0.95,
+            do_sample: true
+          }
+        })
+      });
+      
+      console.log('Processing API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to process text';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const result = await response.json();
+      return result[0]?.generated_text || formatBasicText(text);
+      
+    } catch (localError) {
+      console.warn('Error using local model:', localError);
+      // Fall back to basic formatting if local model fails
+      return formatBasicText(text);
     }
   } catch (error) {
     console.error('Processing error:', error);
     // Return the original text if processing fails
     return text;
   }
+};
+
+/**
+ * Basic text formatting function as a fallback
+ * @param {string} text - The text to format
+ * @returns {string} - The formatted text
+ */
+const formatBasicText = (text) => {
+  // Simple formatting: capitalize sentences, add periods if missing
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  
+  const formattedSentences = sentences.map(sentence => {
+    // Trim whitespace
+    let formatted = sentence.trim();
+    
+    // Capitalize first letter if not already capitalized
+    if (formatted && formatted.length > 0) {
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    }
+    
+    // Add period if missing ending punctuation
+    if (formatted && !formatted.match(/[.!?]$/)) {
+      formatted += '.';
+    }
+    
+    return formatted;
+  });
+  
+  // Join sentences with spaces
+  return formattedSentences.join(' ');
 };

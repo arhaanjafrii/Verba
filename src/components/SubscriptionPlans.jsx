@@ -32,10 +32,10 @@ const SubscriptionPlans = ({ onStartTrial }) => {
       price: 156,
       interval: 'year',
       features: [
-        'Everything in monthly plan',
-        '2 months free',
-        'Higher usage limits',
-        'Premium support'
+        'Unlimited transcriptions',
+        'Advanced AI processing',
+        'Priority support',
+        'Cancel anytime'
       ],
       stripePriceId: 'price_yearly' // This would be the actual Stripe price ID in production
     }

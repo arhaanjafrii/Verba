@@ -6,6 +6,10 @@ class AudioRecorder {
     this.audioChunks = [];
     this.stream = null;
     this.isRecording = false;
+    this.audioContext = null;
+    this.analyser = null;
+    this.microphone = null;
+    this.audioLevel = 0;
   }
 
   /**
@@ -26,6 +30,16 @@ class AudioRecorder {
           this.audioChunks.push(event.data);
         }
       };
+      
+      // Set up audio analysis
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      this.microphone = this.audioContext.createMediaStreamSource(this.stream);
+      this.microphone.connect(this.analyser);
+      
+      // Start monitoring audio levels
+      this.startAudioLevelMonitoring();
       
       return true;
     } catch (error) {
@@ -79,6 +93,44 @@ class AudioRecorder {
   }
 
   /**
+   * Start monitoring audio levels
+   */
+  startAudioLevelMonitoring() {
+    if (!this.analyser) return;
+    
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+    
+    const updateAudioLevel = () => {
+      if (!this.analyser) return;
+      
+      this.analyser.getByteFrequencyData(dataArray);
+      
+      // Calculate average volume level
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+      }
+      
+      // Update audio level with more sensitivity for better visualization
+      this.audioLevel = sum / dataArray.length;
+      
+      // Continue monitoring regardless of recording state
+      // This ensures we always have updated audio levels for visualization
+      requestAnimationFrame(updateAudioLevel);
+    };
+    
+    updateAudioLevel();
+  }
+  
+  /**
+   * Get the current audio level (0-255)
+   * @returns {number} - The current audio level
+   */
+  getAudioLevel() {
+    return this.audioLevel;
+  }
+  
+  /**
    * Clean up resources
    */
   cleanup() {
@@ -87,9 +139,17 @@ class AudioRecorder {
       this.stream = null;
     }
     
+    if (this.audioContext) {
+      this.audioContext.close().catch(err => console.error('Error closing audio context:', err));
+      this.audioContext = null;
+      this.analyser = null;
+      this.microphone = null;
+    }
+    
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.isRecording = false;
+    this.audioLevel = 0;
   }
 
   /**

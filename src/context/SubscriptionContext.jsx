@@ -35,42 +35,49 @@ export const SubscriptionProvider = ({ children }) => {
   // Check user's subscription status when authenticated
   useEffect(() => {
     const checkSubscription = async () => {
-      if (!isAuthenticated || !user) {
-        setCurrentSubscription(null);
-        setLoading(false);
-        return;
-      }
-
       try {
-        setLoading(true);
-        
-        // In a production environment, this would call your backend API
-        // For development, we'll check for subscription data in Supabase
-        // or use localStorage as a fallback
-        
-        // Try to get subscription from localStorage first (for development)
-        const storedSubscription = localStorage.getItem(`subscription_${user.id}`);
-        if (storedSubscription) {
-          try {
-            const parsedSubscription = JSON.parse(storedSubscription);
-            setCurrentSubscription(parsedSubscription);
-            setLoading(false);
-            return;
-          } catch (parseError) {
-            console.error('Error parsing stored subscription:', parseError);
-            // Continue to check with API if parsing fails
-          }
+        if (!isAuthenticated || !user) {
+          setCurrentSubscription(null);
+          setLoading(false);
+          return;
         }
+
+        setLoading(true);
+        setError(null); // Reset error state
         
-        // If no stored subscription, check with API
+        // Safely check subscription status
         const subscriptionData = await checkSubscriptionStatus(user.id);
-        setCurrentSubscription(subscriptionData);
         
-        // Store subscription data in localStorage for development
-        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(subscriptionData));
+        if (subscriptionData) {
+          setCurrentSubscription(subscriptionData);
+          // Only store in localStorage if we have valid data
+          try {
+            localStorage.setItem(`checkout_${user.id}`, JSON.stringify(subscriptionData));
+          } catch (storageError) {
+            console.warn('Failed to store subscription data:', storageError);
+            // Continue without storing - not a critical error
+          }
+        } else {
+          // Handle case where no subscription data is returned
+          setCurrentSubscription({
+            active: false,
+            plan: null,
+            currentPeriodEnd: null,
+            cancelAtPeriodEnd: false,
+            trialEnd: null
+          });
+        }
       } catch (err) {
         console.error('Error checking subscription:', err);
         setError('Failed to check subscription status');
+        // Set a safe default state
+        setCurrentSubscription({
+          active: false,
+          plan: null,
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+          trialEnd: null
+        });
       } finally {
         setLoading(false);
       }

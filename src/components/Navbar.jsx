@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import Modal from './Modal';
 import FeaturesPopup from './FeaturesPopup';
 import SubscriptionPlans from './SubscriptionPlans';
@@ -10,6 +11,7 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [showFeaturesModal, setShowFeaturesModal] = useState(false);
   const [showPlansModal, setShowPlansModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const location = useLocation();
   
   const { user, isAuthenticated, logout } = useAuth();
@@ -66,107 +68,74 @@ const Navbar = () => {
           </motion.div>
         </Link>
 
-        <nav>
-          <ul className="flex space-x-8">
-            <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
-              <Link 
-                to="/" 
-                className={`font-medium transition-colors duration-300 ${location.pathname === '/' ? 'text-primary-600' : 'text-gray-600 hover:text-primary-500'}`}
-              >
-                Home
-              </Link>
-            </motion.li>
-            <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
-              <a 
-                href={location.pathname === '/' ? '#pricing' : '/#pricing'}
-                className="font-medium text-gray-600 hover:text-primary-500 transition-colors duration-300"
-              >
-                Pricing
-              </a>
-            </motion.li>
-            <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
-              <a 
-                href={location.pathname === '/' ? '#features' : '/#features'}
-                className="font-medium text-gray-600 hover:text-primary-500 transition-colors duration-300"
-              >
-                Features
-              </a>
-            </motion.li>
-          </ul>
-        </nav>
+        {!location.pathname.startsWith('/dashboard') && (
+          <nav>
+            <ul className="flex space-x-8">
+              <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
+                <Link 
+                  to="/" 
+                  className={`text-2xl font-bold transition-colors duration-300 ${location.pathname === '/' ? 'text-primary-600' : 'text-gray-800 hover:text-primary-500'}`}
+                >
+                  Home
+                </Link>
+              </motion.li>
+              <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
+                <a 
+                  href={location.pathname === '/' ? '#pricing' : '/#pricing'}
+                  className="text-2xl font-bold text-gray-800 hover:text-primary-500 transition-colors duration-300"
+                >
+                  Pricing
+                </a>
+              </motion.li>
+              <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
+                <a 
+                  href={location.pathname === '/' ? '#features' : '/#features'}
+                  className="text-2xl font-bold text-gray-800 hover:text-primary-500 transition-colors duration-300"
+                >
+                  Features
+                </a>
+              </motion.li>
+            </ul>
+          </nav>
+        )}
 
         <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="hidden sm:block"
-                >
-                  <Link to="/transcribe" className="text-gray-600 hover:text-primary-600 font-medium">
-                    Dashboard
-                  </Link>
-                </motion.div>
-                {currentSubscription?.active ? (
+                {currentSubscription?.active && (
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className="hidden sm:block"
                   >
-                    <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                    <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
                       {currentSubscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} Plan
                     </span>
                   </motion.div>
-                ) : (
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="hidden sm:block"
-                  >
-                    <button 
-                      onClick={() => setShowPlansModal(true)}
-                      className="text-primary-600 hover:text-primary-800 font-medium"
-                    >
-                      Upgrade
-                    </button>
-                  </motion.div>
                 )}
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="hidden sm:block"
-                >
-                  <button 
-                    onClick={() => logout()}
-                    className="text-gray-600 hover:text-primary-600 font-medium"
-                  >
-                    Logout
-                  </button>
-                </motion.div>
               </>
             ) : (
               <>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="hidden sm:block"
+                  className="hidden sm:block mr-4"
                 >
-                  <Link to="/login" className="text-gray-600 hover:text-primary-600 font-medium">
-                    Login
-                  </Link>
+                  <button 
+                    onClick={() => setShowPlansModal(true)}
+                    className="btn-secondary text-xl px-6 py-3"
+                  >
+                    Get Verba
+                  </button>
                 </motion.div>
-                
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="hidden sm:block"
                 >
-                  <button 
-                    onClick={() => setShowFeaturesModal(true)} 
-                    className="btn-primary glow"
-                  >
-                    Get Verba
-                  </button>
+                  <Link to="/login" className="btn-primary glow text-xl px-6 py-3 rounded-lg shadow-lg bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700">
+                    Sign In
+                  </Link>
                 </motion.div>
               </>
             )}

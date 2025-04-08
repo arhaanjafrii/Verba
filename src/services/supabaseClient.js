@@ -2,16 +2,25 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize the Supabase client
-// These environment variables should be set in .env file
+// These environment variables must be set in .env file
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Validate environment variables
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase credentials are missing. Please check your environment variables.');
-  // Provide fallback values for development to prevent crashes
-  supabaseUrl = supabaseUrl || 'https://placeholder-supabase-url.co';
-  supabaseAnonKey = supabaseAnonKey || 'placeholder-anon-key';
-  console.warn('Using Supabase with placeholder values. Authentication features will not work properly.');
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
+
+  const errorMessage = `Supabase configuration error: Missing required environment variables: ${missingVars.join(', ')}\n` +
+    'Please check the following:\n' +
+    '1. Create a .env file in the project root\n' +
+    '2. Copy variables from .env.example\n' +
+    '3. Fill in your Supabase project credentials\n' +
+    'You can find these values in your Supabase project settings.';
+
+  console.error(errorMessage);
+  throw new Error(errorMessage);
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranscription } from '../context/TranscriptionContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSubscription } from '../context/SubscriptionContext';
+import { useAuth } from '../context/AuthContext';
 import AudioRecorder from '../utils/audioRecorder';
 
 const TranscribePage = () => {
@@ -18,10 +19,15 @@ const TranscribePage = () => {
   const [customInstructions, setCustomInstructions] = useState('');
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [microphone, setMicrophone] = useState('default');
+  const [defaultStyle, setDefaultStyle] = useState('note');
+  const [customWords, setCustomWords] = useState('');
   
   const location = useLocation();
   const navigate = useNavigate();
   const { currentSubscription } = useSubscription();
+  const { user, isAuthenticated } = useAuth();
   
   const fileInputRef = useRef(null);
   const timerRef = useRef(null);
@@ -36,50 +42,62 @@ const TranscribePage = () => {
     process, 
     reset 
   } = useTranscription();
+
+  // Handle saving notes
+  const handleSaveNote = () => {
+    if (!processedText || !user) return;
+    
+    try {
+      // Create a new note object
+      const newNote = {
+        id: Date.now(),
+        title: uploadFileName || 'Untitled Note',
+        content: processedText,
+        date: new Date().toISOString(),
+        duration: recordingTime ? formatTime(recordingTime) : 'Unknown',
+      };
+      
+      // Get existing notes from localStorage
+      const storedNotes = localStorage.getItem(`notes_${user.id}`);
+      let notes = [];
+      
+      if (storedNotes) {
+        notes = JSON.parse(storedNotes);
+      }
+      
+      // Add new note to the array
+      notes.unshift(newNote);
+      
+      // Save back to localStorage
+      localStorage.setItem(`notes_${user.id}`, JSON.stringify(notes));
+      
+      // Show success message
+      showToastMessage('Note saved successfully!');
+    } catch (err) {
+      console.error('Error saving note:', err);
+      showToastMessage('Failed to save note. Please try again.');
+    }
+  };
   
+  // Check authentication and subscription status
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (!currentSubscription?.active) {
+      navigate('/#pricing');
+      return;
+    }
+  }, [isAuthenticated, currentSubscription, navigate]);
+
   // Initialize audio recorder
   useEffect(() => {
     recorderRef.current = new AudioRecorder();
     
     // Clean up on unmount
-    // Checkout success message component
-  const CheckoutSuccessMessage = () => {
-    const planName = checkoutPlan?.includes('yearly') ? 'Yearly' : 'Monthly';
-    
-    return (
-      <motion.div
-        className="fixed top-20 right-4 bg-green-50 border-l-4 border-green-500 p-4 rounded shadow-lg z-50 max-w-md"
-        initial={{ x: 100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: 100, opacity: 0 }}
-      >
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <svg className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-lg font-medium text-green-800">Payment Successful!</h3>
-            <div className="mt-2 text-sm text-green-700">
-              <p>Thank you for subscribing to our {planName} plan. Your account has been upgraded successfully.</p>
-            </div>
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => setShowCheckoutSuccess(false)}
-                className="text-sm font-medium text-green-600 hover:text-green-500"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
-  
-  return () => {
+    return () => {
       if (recorderRef.current) {
         recorderRef.current.cleanup();
       }
@@ -88,6 +106,31 @@ const TranscribePage = () => {
       }
     };
   }, []);
+  
+  // Update audio visualization during recording
+  useEffect(() => {
+    if (!isRecording || !recorderRef.current) return;
+    
+    // Use requestAnimationFrame for smoother updates that sync with the browser's refresh rate
+    let animationFrameId;
+    
+    const updateVisualization = () => {
+      // This forces a re-render to get the latest audio levels
+      setRecordingTime(prev => prev);
+      // Continue the animation loop
+      animationFrameId = requestAnimationFrame(updateVisualization);
+    };
+    
+    // Start the animation loop
+    animationFrameId = requestAnimationFrame(updateVisualization);
+    
+    return () => {
+      // Clean up by canceling the animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isRecording]);
   
   // Check for checkout success in URL
   useEffect(() => {
@@ -217,20 +260,15 @@ const TranscribePage = () => {
     }
   };
 
-  // Handle text download
-  const handleDownload = () => {
-    if (!processedText) return;
-    
-    const element = document.createElement('a');
-    const file = new Blob([processedText], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = 'transcription.txt';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    
-    // Clean up
-    URL.revokeObjectURL(element.href);
+  // Handle downloading transcribed text
+  // Add this function somewhere in your component before it's used
+  const handleDownload = (url, filename) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
   
   // Handle processing task change
@@ -326,8 +364,188 @@ const TranscribePage = () => {
     );
   };
   
+  // Settings modal component
+  const SettingsModal = () => (
+    <motion.div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <motion.div 
+        className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+      >
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Settings</h2>
+            <button 
+              onClick={() => setShowSettings(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-6 space-y-8">
+          {/* Preferences */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Preferences</h3>
+            <p className="text-sm text-gray-600 mb-4">These settings will be used as defaults for new notes.</p>
+            
+            <div className="space-y-6">
+              {/* Microphone Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Microphone</label>
+                <select
+                  value={microphone}
+                  onChange={(e) => setMicrophone(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="default">Default Microphone</option>
+                </select>
+              </div>
+              
+              {/* Language Selection - Disabled */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+                <div className="flex items-center space-x-2">
+                  <select
+                    disabled
+                    className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                  >
+                    <option>Auto 🌐</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Default Style */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Default Style</label>
+                <select
+                  value={defaultStyle}
+                  onChange={(e) => setDefaultStyle(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="note">Note</option>
+                  <option value="summary">Summary</option>
+                  <option value="bullets">Bullet Points</option>
+                </select>
+              </div>
+              
+              {/* Custom Words */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Custom words</label>
+                <textarea
+                  value={customWords}
+                  onChange={(e) => setCustomWords(e.target.value.slice(0, 240))}
+                  placeholder="List of custom words/expressions the AI can use, separated by a comma (240 characters max)"
+                  className="w-full p-2 border border-gray-300 rounded-md h-24"
+                />
+                <p className="text-sm text-gray-500 mt-1">{240 - customWords.length} characters remaining</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Account Info */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Account Info</h3>
+            <p className="text-sm text-gray-600 mb-4">Update your account information.</p>
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First name</label>
+                  <input
+                    type="text"
+                    value={user?.first_name || ''}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    placeholder="First name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last name</label>
+                  <input
+                    type="text"
+                    value={user?.last_name || ''}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    placeholder="Last name"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={user?.email || ''}
+                  className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+                  disabled
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Password Change */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Create Password</h3>
+            <p className="text-sm text-gray-600 mb-4">Define or change your account's permanent password.</p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <input
+                  type="password"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  placeholder="••••••••••••••"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password Confirmation</label>
+                <input
+                  type="password"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                  placeholder="••••••••••••••"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Subscription Info */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Plan</h3>
+            <p className="text-sm text-gray-600 mb-4">Manage your subscription.</p>
+            
+            <div className="p-4 bg-gray-50 rounded-lg">
+              {currentSubscription?.active ? (
+                <p>You are on the {currentSubscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} plan.</p>
+              ) : (
+                <p>You are on the Free plan with basic features.</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Other Links */}
+          <div className="space-y-2">
+            <a href="/privacy" className="block text-primary-600 hover:text-primary-700">Privacy Policy</a>
+            <a href="/terms" className="block text-primary-600 hover:text-primary-700">Terms of Service</a>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
   return (
     <div className="pt-32 pb-20 px-4">
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {showSettings && <SettingsModal />}
+      </AnimatePresence>
+      
       {/* Checkout success message */}
       <AnimatePresence>
         {showCheckoutSuccess && <CheckoutSuccessMessage />}
@@ -388,6 +606,34 @@ const TranscribePage = () => {
                   )}
                   {isRecording ? (
                     <div className="text-center">
+                      {/* Audio Visualization */}
+                      <div className="w-full h-24 bg-red-50 rounded-lg mb-6 flex items-center justify-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-full">
+                          <div className="h-full w-full flex items-center">
+                            <div className="flex items-end justify-around w-full h-full px-2">
+                              {Array.from({ length: 30 }).map((_, i) => {
+                                // Get audio level and update every animation frame
+                                const audioLevel = recorderRef.current?.getAudioLevel() || 0;
+                                // Scale the audio level to a percentage (0-100%)
+                                // Apply a more dynamic range to make visualization more responsive
+                                const heightPercentage = Math.min(Math.max((audioLevel / 128) * 100, 5), 95);
+                                
+                                return (
+                                  <div 
+                                    key={i} 
+                                    className="w-1 bg-red-400 rounded-full transition-all duration-50"
+                                    style={{ 
+                                      height: `${heightPercentage}%`,
+                                      transitionDelay: `${i * 0.01}s`
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
                       <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 relative">
                         <div className="absolute w-20 h-20 bg-red-500 rounded-full animate-pulse"></div>
                         <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
@@ -416,7 +662,7 @@ const TranscribePage = () => {
                             whileTap={{ scale: 0.95 }}
                           >
                             <svg className="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                           </motion.button>
                           <p className="text-sm text-gray-600 mt-2">Record</p>
@@ -695,11 +941,26 @@ const TranscribePage = () => {
                         
                         <motion.button
                           className="btn-primary flex-1"
-                          onClick={handleDownload}
+                          onClick={() => handleDownload(
+                            new Blob([processedText], { type: 'text/plain' }),
+                            `${uploadFileName.split('.')[0] || 'transcription'}.txt`
+                          )}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
                           Download Text
+                        </motion.button>
+                        
+                        <motion.button
+                          className="btn-primary flex-1 flex items-center justify-center"
+                          onClick={handleSaveNote}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                          </svg>
+                          Save Note
                         </motion.button>
                       </div>
                     </div>
@@ -746,7 +1007,7 @@ const TranscribePage = () => {
             <div>
               <h3 className="text-lg font-medium mb-3 flex items-center">
                 <svg className="w-6 h-6 text-primary-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
                 Advanced Speech Recognition
               </h3>
@@ -790,3 +1051,17 @@ const TranscribePage = () => {
 };
 
 export default TranscribePage;
+
+// Add this function near your other handler functions (around line 300)
+const handleCopy = () => {
+  if (!processedText) return;
+  
+  navigator.clipboard.writeText(processedText)
+    .then(() => {
+      showToastMessage('Text copied to clipboard!');
+    })
+    .catch(err => {
+      console.error('Failed to copy text:', err);
+      showToastMessage('Failed to copy text to clipboard');
+    });
+};

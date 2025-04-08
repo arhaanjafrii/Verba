@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getCurrentUser, signIn, signUp, signOut } from '../services/supabaseClient';
+import { getCurrentUser, getCurrentSession, signIn, signUp, signOut } from '../services/supabaseClient';
 
 // Create the context
 const AuthContext = createContext();
@@ -12,12 +12,28 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [initialized, setInitialized] = useState(false);
 
   // Initialize: check if user is already logged in
   useEffect(() => {
     const checkUser = async () => {
       try {
         setLoading(true);
+        setError(null);
+
+        // First check if there's an active session
+        const { data: sessionData, error: sessionError } = await getCurrentSession();
+        
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (!sessionData.session) {
+          setUser(null);
+          return;
+        }
+
+        // If there's a session, get the user details
         const { user: currentUser, error: userError } = await getCurrentUser();
         
         if (userError) {
@@ -28,8 +44,10 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('Auth initialization error:', err);
         setError(err.message);
+        setUser(null);
       } finally {
         setLoading(false);
+        setInitialized(true);
       }
     };
 
@@ -108,7 +126,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
+    initialized
   };
 
   return (

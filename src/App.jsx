@@ -6,10 +6,12 @@ import { AnimatePresence } from 'framer-motion';
 import LandingPage from './pages/LandingPage';
 import TranscribePage from './pages/TranscribePage';
 import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 
 // Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Context
 import { TranscriptionProvider } from './context/TranscriptionContext';
@@ -27,8 +29,25 @@ function App() {
               <AnimatePresence mode="wait">
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
-                  <Route path="/transcribe" element={<TranscribePage />} />
+                  <Route 
+                    path="/transcribe" 
+                    element={
+                      <ProtectedRoute 
+                        element={<TranscribePage />} 
+                        requireSubscription={true}
+                      />
+                    } 
+                  />
                   <Route path="/login" element={<LoginPage />} />
+                  <Route 
+                    path="/dashboard" 
+                    element={
+                      <ProtectedRoute 
+                        element={<DashboardPage />} 
+                        requireSubscription={false}
+                      />
+                    } 
+                  />
                 </Routes>
               </AnimatePresence>
             </main>

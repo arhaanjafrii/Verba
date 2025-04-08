@@ -1,8 +1,34 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import Modal from '../components/Modal';
+import SubscriptionPlans from '../components/SubscriptionPlans';
+import { useAuth } from '../context/AuthContext';
+import { useTranscription } from '../context/TranscriptionContext';
+import AudioRecorder from '../utils/audioRecorder';
 
 const LandingPage = () => {
+  const [showPlansModal, setShowPlansModal] = useState(false);
+  const { isAuthenticated, user } = useAuth();
+  
+  // Interactive demo state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioURL, setAudioURL] = useState('');
+  const [demoTranscription, setDemoTranscription] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('note');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [demoError, setDemoError] = useState('');
+  const [demoStep, setDemoStep] = useState(1); // 1: Recording, 2: Style Selection
+  const [demoAudioBlob, setDemoAudioBlob] = useState(null);
+  const [processedText, setProcessedText] = useState('');
+  
+  // Refs for recording
+  const recorderRef = useRef(null);
+  const timerRef = useRef(null);
+  
+  const { transcribe, process } = useTranscription();
+  
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -26,7 +52,166 @@ const LandingPage = () => {
       },
     },
   };
+  
+  // Initialize audio recorder
+  useEffect(() => {
+    recorderRef.current = new AudioRecorder();
+    
+    // Clean up on unmount
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.cleanup();
+      }
+      if (audioURL) {
+        AudioRecorder.revokeAudioURL(audioURL);
+      }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+  
+  // Format time for display (MM:SS)
+  const formatTime = (timeInSeconds) => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = timeInSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
 
+  // Handle recording start for demo
+  const startDemoRecording = async () => {
+    // Reset previous recording state
+    setDemoTranscription('');
+    setRecordingTime(0);
+    setDemoError('');
+    setDemoStep(1);
+    setDemoAudioBlob(null);
+    setProcessedText('');
+    
+    if (audioURL) {
+      AudioRecorder.revokeAudioURL(audioURL);
+      setAudioURL('');
+    }
+    
+    // Start recording
+    const success = await recorderRef.current.start();
+    
+    if (success) {
+      setIsRecording(true);
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          // Automatically stop at 20 seconds for the demo
+          if (prev >= 20) {
+            stopDemoRecording();
+            return 20;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      setDemoError('Could not access microphone. Please check permissions.');
+    }
+  };
+  
+  // Handle recording stop for demo
+  const stopDemoRecording = async () => {
+    if (!isRecording) return;
+    
+    // Clear timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // Stop recording
+    const audioBlob = await recorderRef.current.stop();
+    setIsRecording(false);
+    
+    if (audioBlob) {
+      // Create audio URL for playback
+      const url = AudioRecorder.createAudioURL(audioBlob);
+      setAudioURL(url);
+      setDemoAudioBlob(audioBlob);
+      
+      // Don't automatically process - wait for user to click Continue
+      // This follows the two-step process requested
+    }
+  };
+  
+  // Process recorded audio for demo
+  const processDemoAudio = async () => {
+    if (!demoAudioBlob) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // Create a File object from the Blob
+      const audioFile = new File([demoAudioBlob], 'demo-recording.webm', {
+        type: demoAudioBlob.type || 'audio/webm',
+      });
+      
+      // Transcribe the audio
+      const text = await transcribe(audioFile);
+      setDemoTranscription(text);
+      
+      // Move to style selection step
+      setDemoStep(2);
+      
+      // Don't automatically process with style yet - wait for user selection
+    } catch (error) {
+      console.error('Demo transcription error:', error);
+      setDemoError('Failed to transcribe audio. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  // Handle style change for demo
+  const handleStyleChange = async (style) => {
+    setSelectedStyle(style);
+    
+    if (demoTranscription) {
+      setIsProcessing(true);
+      setDemoError(''); // Clear any previous errors
+      
+      try {
+        // Process with selected style
+        console.log(`Processing text with style: ${style}`);
+        const processed = await process(demoTranscription, style);
+        
+        if (processed) {
+          setProcessedText(processed);
+          console.log('Style processing completed successfully');
+        } else {
+          // If process returns null or undefined, use original text
+          setProcessedText(demoTranscription);
+          console.warn('Process returned empty result, using original text');
+        }
+      } catch (error) {
+        console.error('Style processing error:', error);
+        setDemoError(`Failed to process with selected style: ${error.message || 'Unknown error'}`);
+        // Fall back to original text on error
+        setProcessedText(demoTranscription);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+  
+  // Reset demo to recording step
+  const resetDemo = () => {
+    setDemoStep(1);
+    setDemoTranscription('');
+    setProcessedText('');
+    if (audioURL) {
+      // Keep the audio URL for playback
+      // but reset the processing state
+    }
+    setDemoError('');
+  };
+  
   const featureItems = [
     {
       title: 'AI-Powered Transcription',
@@ -59,7 +244,7 @@ const LandingPage = () => {
 
   return (
     <div className="bg-white">
-      {/* Hero Section */}
+      {/* Hero Section with Interactive Demo */}
       <section className="pt-32 pb-20 px-4 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
           <div className="absolute top-0 right-0 bg-primary-100 w-2/3 h-2/3 rounded-bl-full opacity-30 transform translate-x-1/4 -translate-y-1/4"></div>
@@ -90,18 +275,30 @@ const LandingPage = () => {
             </motion.p>
             
             <motion.div 
-              className="flex flex-col sm:flex-row justify-center gap-4"
+              className="flex flex-col sm:flex-row justify-center gap-4 mb-12"
               variants={itemVariants}
             >
-              <Link to="/transcribe">
-                <motion.button 
-                  className="btn-primary glow-effect text-lg px-8 py-4"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Start Transcribing
-                </motion.button>
-              </Link>
+              {isAuthenticated ? (
+                <Link to="/dashboard">
+                  <motion.button 
+                    className="btn-primary glow-effect text-lg px-8 py-4"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Go to App
+                  </motion.button>
+                </Link>
+              ) : (
+                <Link to="/transcribe">
+                  <motion.button 
+                    className="btn-primary glow-effect text-lg px-8 py-4"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Start Transcribing
+                  </motion.button>
+                </Link>
+              )}
               
               <motion.a 
                 href="#features" 
@@ -114,8 +311,9 @@ const LandingPage = () => {
             </motion.div>
           </motion.div>
 
+          {/* Interactive Demo - Moved to top of page and made larger */}
           <motion.div 
-            className="mt-16 max-w-5xl mx-auto"
+            className="max-w-5xl mx-auto"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.8 }}
@@ -131,15 +329,235 @@ const LandingPage = () => {
                   </div>
                 </div>
                 <div className="p-6 bg-white">
-                  <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                        <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
-                        </svg>
+                  <div className="text-center mb-4">
+                    <h3 className="text-2xl font-semibold">Interactive demo</h3>
+                  </div>
+                  
+                  {/* Demo Recording UI */}
+                  <div className="bg-gray-50 rounded-xl p-8 flex flex-col items-center justify-center">
+                    {/* Audio Visualization */}
+                    <div className="w-full h-24 bg-blue-50 rounded-lg mb-6 flex items-center justify-center relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-full h-full">
+                        <div className="h-full w-full flex items-center">
+                          <div className="flex items-end justify-around w-full h-full px-2">
+                            {Array.from({ length: 30 }).map((_, i) => (
+                              <div 
+                                key={i} 
+                                className={`w-1 bg-primary-400 rounded-full ${isRecording ? 'animate-sound-wave' : 'h-1'}`}
+                                style={{ 
+                                  height: isRecording ? `${Math.random() * 70 + 10}%` : '5%',
+                                  animationDelay: `${i * 0.05}s`
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-gray-500">Upload or record audio to start transcribing</p>
+                      {!isRecording && !audioURL && (
+                        <p className="text-gray-400 z-10">Click the microphone to start recording</p>
+                      )}
                     </div>
+                    
+                    {/* Timer */}
+                    <div className="mb-6 text-center">
+                      <p className="text-sm text-gray-500 mb-1">Limit: 00:20</p>
+                      <p className="text-4xl font-mono font-bold">{formatTime(recordingTime)}</p>
+                    </div>
+                    
+                    {/* Controls */}
+                    <div className="flex items-center justify-center space-x-6 mb-6">
+                      <button 
+                        className="w-16 h-16 rounded-full bg-blue-100 text-primary-600 flex items-center justify-center"
+                        onClick={() => {
+                          if (audioURL) {
+                            // Create audio element and ensure it plays
+                            const audio = new Audio();
+                            audio.src = audioURL;
+                            audio.oncanplaythrough = () => {
+                              audio.play().catch(err => console.error('Audio playback error:', err));
+                            };
+                            audio.onerror = (e) => console.error('Audio loading error:', e);
+                          }
+                        }}
+                        disabled={!audioURL}
+                      >
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      
+                      <button 
+                        onClick={isRecording ? stopDemoRecording : startDemoRecording}
+                        className={`w-24 h-24 rounded-full flex items-center justify-center shadow-lg ${isRecording ? 'bg-red-500 text-white' : 'bg-primary-500 text-white'}`}
+                        disabled={isProcessing}
+                      >
+                        {isRecording ? (
+                          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <rect x="6" y="6" width="12" height="12" strokeWidth="2" />
+                          </svg>
+                        ) : (
+                          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
+                        )}
+                      </button>
+                      
+                      <button 
+                        className="w-16 h-16 rounded-full bg-blue-100 text-primary-600 flex items-center justify-center"
+                        onClick={() => {
+                          if (audioURL) {
+                            AudioRecorder.revokeAudioURL(audioURL);
+                            setAudioURL('');
+                            setDemoTranscription('');
+                            setRecordingTime(0);
+                          }
+                        }}
+                        disabled={!audioURL}
+                      >
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    {/* Continue Button - Only show in step 1 when audio is recorded */}
+                    {audioURL && !isProcessing && demoStep === 1 && (
+                      <button 
+                        className="btn-primary w-full py-3 flex items-center justify-center"
+                        onClick={processDemoAudio}
+                      >
+                        <span className="mr-2">Continue</span>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                      </button>
+                    )}
+                    
+                    {/* Processing Indicator */}
+                    {isProcessing && (
+                      <div className="flex justify-center items-center py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500"></div>
+                        <span className="ml-3">Processing...</span>
+                      </div>
+                    )}
+                    
+                    {/* Help Text - Only show in step 1 */}
+                    {demoStep === 1 && (
+                      <p className="text-center text-gray-400 text-sm mt-4">
+                        <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Try it out! Click the <svg className="w-4 h-4 inline-block mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg> to start recording
+                      </p>
+                    )}
+                    
+                    {/* Style Selection - Only show in step 2 */}
+                    {demoStep === 2 && demoTranscription && !isProcessing && (
+                      <div className="w-full mt-4">
+                        <h4 className="text-lg font-semibold mb-3">2. Choose a style (4 options)</h4>
+                        
+                        <div className="space-y-3">
+                          {/* Note Style */}
+                          <button 
+                            onClick={() => handleStyleChange('note')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'note' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                          >
+                            <span className="text-primary-600 mr-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="font-medium">Note</p>
+                              <p className="text-sm text-gray-500">A short note with the core ideas.</p>
+                            </div>
+                          </button>
+                          
+                          {/* Transcript Style */}
+                          <button 
+                            onClick={() => handleStyleChange('format')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'format' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                          >
+                            <span className="text-primary-600 mr-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="font-medium">Transcript</p>
+                              <p className="text-sm text-gray-500">Cleaned up transcript, with punctuation.</p>
+                            </div>
+                          </button>
+                          
+                          {/* Summary Style */}
+                          <button 
+                            onClick={() => handleStyleChange('summary')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'summary' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                          >
+                            <span className="text-primary-600 mr-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="font-medium">Summary</p>
+                              <p className="text-sm text-gray-500">Concise summary of key points.</p>
+                            </div>
+                          </button>
+                          
+                          {/* Bullet Points Style */}
+                          <button 
+                            onClick={() => handleStyleChange('bullet_points')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'bullet_points' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                          >
+                            <span className="text-primary-600 mr-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="font-medium">Bullet Points</p>
+                              <p className="text-sm text-gray-500">Hierarchical bullet point structure with main topics and subtopics.</p>
+                            </div>
+                          </button>
+                          
+                          <p className="text-center text-sm text-primary-600 mt-2">Plus many more styles in the full version!</p>
+                        </div>
+                        
+                        <div className="flex justify-between mt-6">
+                          <button 
+                            onClick={resetDemo}
+                            className="btn-secondary px-6 py-2 flex items-center"
+                          >
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back
+                          </button>
+                          
+                          <button 
+                            onClick={() => handleStyleChange(selectedStyle)}
+                            className="btn-primary px-6 py-2 flex items-center"
+                          >
+                            Continue
+                            <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Results Display - After processing */}
+                    {demoStep === 2 && !isProcessing && (
+                      <div className="w-full mt-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
+                        <h4 className="text-lg font-semibold mb-3">Result:</h4>
+                        <p className="whitespace-pre-wrap">{processedText || demoTranscription}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -188,6 +606,8 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Removed duplicate interactive demo section */}
+
       {/* Pricing Section */}
       <section id="pricing" className="py-20 px-4 bg-gray-50">
         <div className="container mx-auto">
@@ -219,7 +639,7 @@ const LandingPage = () => {
               <div className="p-8">
                 <h3 className="text-2xl font-bold mb-4">Monthly</h3>
                 <div className="flex items-end mb-6">
-                  <span className="text-5xl font-bold">$15</span>
+                  <span className="text-5xl font-bold">$16.99</span>
                   <span className="text-gray-500 ml-2">/month</span>
                 </div>
                 <ul className="space-y-3 mb-8">
@@ -248,7 +668,7 @@ const LandingPage = () => {
                     <span>Cancel anytime</span>
                   </li>
                 </ul>
-                <button className="btn-secondary w-full py-3">
+                <button className="btn-secondary w-full py-3" onClick={() => setShowPlansModal(true)}>
                   Get Started
                 </button>
               </div>
@@ -269,7 +689,7 @@ const LandingPage = () => {
               <div className="p-8">
                 <h3 className="text-2xl font-bold mb-4">Annual</h3>
                 <div className="flex items-end mb-6">
-                  <span className="text-5xl font-bold">$156</span>
+                  <span className="text-5xl font-bold">$156.00</span>
                   <span className="text-gray-500 ml-2">/year</span>
                 </div>
                 <ul className="space-y-3 mb-8">
@@ -298,7 +718,7 @@ const LandingPage = () => {
                     <span>Premium support</span>
                   </li>
                 </ul>
-                <button className="btn-primary w-full py-3 glow-effect">
+                <button className="btn-primary w-full py-3 glow-effect" onClick={() => setShowPlansModal(true)}>
                   Get Started
                 </button>
               </div>
@@ -392,114 +812,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 px-4">
-        <div className="container mx-auto">
-          <motion.div 
-            className="text-center max-w-3xl mx-auto mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="text-4xl font-bold mb-6">
-              <span className="gradient-text">Simple</span> Pricing
-            </h2>
-            <p className="text-xl text-gray-600">
-              Choose the plan that works best for you
-            </p>
-          </motion.div>
 
-          <div className="flex flex-col md:flex-row justify-center gap-8 max-w-5xl mx-auto">
-            {/* Monthly Plan */}
-            <motion.div
-              className="flex-1 card border border-primary-200 hover:shadow-lg transition-shadow"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-              whileHover={{ y: -5 }}
-            >
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-semibold mb-2">Monthly</h3>
-                <div className="text-4xl font-bold mb-2">$15<span className="text-lg text-gray-500 font-normal">/month</span></div>
-                <p className="text-gray-600">Billed monthly</p>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Unlimited transcriptions
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Advanced text processing
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Priority support
-                </li>
-              </ul>
-              <Link to="/transcribe" className="btn-primary w-full text-center">
-                Get Started
-              </Link>
-            </motion.div>
-
-            {/* Yearly Plan */}
-            <motion.div
-              className="flex-1 card border border-primary-200 bg-primary-50 hover:shadow-lg transition-shadow relative overflow-hidden"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              whileHover={{ y: -5 }}
-            >
-              <div className="absolute top-0 right-0 bg-primary-500 text-white text-xs font-bold px-3 py-1 transform translate-x-2 -translate-y-0 rotate-45 transform origin-bottom-left">
-                SAVE 13%
-              </div>
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-semibold mb-2">Yearly</h3>
-                <div className="text-4xl font-bold mb-2">$156<span className="text-lg text-gray-500 font-normal">/year</span></div>
-                <p className="text-gray-600">$13/month, billed annually</p>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Unlimited transcriptions
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Advanced text processing
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  Priority support
-                </li>
-                <li className="flex items-center">
-                  <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                  </svg>
-                  2 months free
-                </li>
-              </ul>
-              <Link to="/transcribe" className="btn-primary w-full text-center glow-effect">
-                Get Started
-              </Link>
-            </motion.div>
-          </div>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-20 px-4 bg-gray-50">
@@ -546,6 +859,19 @@ const LandingPage = () => {
           </motion.div>
         </div>
       </section>
+      {/* Subscription Plans Modal */}
+      <Modal
+        isOpen={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        title="Choose Your Plan"
+        maxWidth="max-w-xl"
+      >
+        <SubscriptionPlans 
+          onStartTrial={(plan) => {
+            setShowPlansModal(false);
+          }}
+        />
+      </Modal>
     </div>
   );
 };

@@ -8,11 +8,11 @@ A modern, minimalistic AI-powered transcription web application that converts sp
 - Smooth animations and gradient effects
 - Audio file upload for transcription
 - Audio recording directly in browser
-- AI-powered speech-to-text transcription using free Whisper model
-- Advanced text processing (formatting, summarization) using free AI models
+- AI-powered speech-to-text transcription using Whisper model via Hugging Face
+- Advanced text processing (formatting, summarization) using Hugging Face AI models
 - Audio playback of recordings
 - Download and copy transcription results
-- No API keys required - works out of the box!
+- Requires Hugging Face API key for full functionality
 
 ## Technologies Used
 
@@ -52,19 +52,20 @@ npm run dev
 
 5. Open your browser and navigate to `http://localhost:3000`
 
-## Free Models Information
+## Models Information
 
 ### Transcription
-- Uses OpenAI's Whisper base model via Hugging Face's free inference API
-- No API key required
-- Subject to Hugging Face's free tier rate limits
-- Includes fallback mechanisms when the API is unavailable
+- Uses OpenAI's Whisper large-v3 model via Hugging Face's inference API
+- Requires a Hugging Face API key (VITE_HF_API_KEY)
+- Subject to Hugging Face's rate limits based on your account tier
+- Includes fallback mechanisms for processing
 
 ### Text Processing
-- Uses Google's FLAN-T5-base model via Hugging Face's free inference API
-- Provides formatting and summarization capabilities
-- No API key required
-- Includes basic fallback processing when the API is unavailable
+- Uses Google's Flan-T5-XL model via Hugging Face's inference API
+- Requires the same Hugging Face API key as transcription
+- Provides multiple formatting options (standard, summary, bullet points, etc.)
+- Custom instructions supported for specialized formatting
+- Includes fallback to basic formatting when API is unavailable
 
 ## Fallback Mechanisms
 
@@ -94,10 +95,10 @@ The application includes fallback mechanisms for when the free APIs are unavaila
 
 This application requires the following API keys:
 
-1. Speech-to-text API key - For transcribing audio files
-2. AI processing API key - For advanced text processing
+1. Hugging Face API key (VITE_HF_API_KEY) - For transcribing audio with Whisper and processing text with AI models
+2. OpenAI API key (VITE_OPENAI_API_KEY) - Optional, for alternative AI processing
 
-Add these keys to your `.env` file after copying from `.env.example`.
+Add these keys to your `.env` file after copying from `.env.example`. The Hugging Face API key is essential for both transcription and AI processing functionality.
 
 ## Note
 
