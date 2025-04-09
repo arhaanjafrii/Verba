@@ -53,8 +53,8 @@ const Navbar = () => {
               <path d="M50 34C48.895 34 48 34.895 48 36V40H44C42.895 40 42 40.895 42 42C42 43.105 42.895 44 44 44H48C50.209 44 52 42.209 52 40V36C52 34.895 51.105 34 50 34Z" fill="white"/>
               <defs>
                 <linearGradient id="paint0_linear" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#C4B5FD" />
-                  <stop offset="1" stop-color="#8B5CF6" />
+                  <stop stopColor="#C4B5FD" />
+                  <stop offset="1" stopColor="#8B5CF6" />
                 </linearGradient>
               </defs>
             </svg>
@@ -123,7 +123,9 @@ const Navbar = () => {
                     className="hidden sm:block ml-2"
                   >
                     <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                      {currentSubscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} Plan
+                      {currentSubscription.trialEnd && new Date(currentSubscription.trialEnd) > new Date() 
+                        ? 'Free Trial' 
+                        : currentSubscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} Plan
                     </span>
                   </motion.div>
                 )}

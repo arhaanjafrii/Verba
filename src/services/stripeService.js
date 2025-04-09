@@ -26,9 +26,10 @@ const getStripe = () => {
  * @param {string} userId - The user ID for the customer
  * @param {string} customerEmail - The customer's email address
  * @param {boolean} isTrial - Whether this is a free trial signup
+ * @param {number} trialDays - Number of days for the trial period (default: 7)
  * @returns {Promise<string>} - The checkout session URL
  */
-export const createCheckoutSession = async (priceId, userId, customerEmail, isTrial = false) => {
+export const createCheckoutSession = async (priceId, userId, customerEmail, isTrial = false, trialDays = 7) => {
   try {
     // In a real implementation, this would call your backend API
     // For now, we'll implement a client-side checkout flow for development
@@ -43,8 +44,17 @@ export const createCheckoutSession = async (priceId, userId, customerEmail, isTr
     console.log(`Creating checkout session for: ${priceId}, ${userId}, ${customerEmail}, isTrial: ${isTrial}`);
     
     // In a production environment, you would create a checkout session through your backend
+    // with the trial_period_days parameter set to 7 days
+    // 
+    // Example backend code using Stripe API:
+    // stripe.Subscription.create({
+    //   customer: customerId,
+    //   items: [{ price: priceId }],
+    //   trial_period_days: trialDays
+    // });
+    //
     // For development, we'll redirect to the success page directly
-    // This simulates a successful payment flow
+    // This simulates a successful payment flow with trial period
     
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1000));

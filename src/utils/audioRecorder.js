@@ -61,11 +61,25 @@ class AudioRecorder {
     // Reset audio chunks
     this.audioChunks = [];
     
-    // Start recording
-    this.mediaRecorder.start();
-    this.isRecording = true;
-    
-    return true;
+    try {
+      // Start recording
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      
+      // Set up data available event handler if not already set
+      if (!this.mediaRecorder.ondataavailable) {
+        this.mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            this.audioChunks.push(event.data);
+          }
+        };
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      return false;
+    }
   }
 
   /**

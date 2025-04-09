@@ -64,7 +64,8 @@ export const SubscriptionProvider = ({ children }) => {
             plan: null,
             currentPeriodEnd: null,
             cancelAtPeriodEnd: false,
-            trialEnd: null
+            trialEnd: null,
+            isInTrial: false
           });
         }
       } catch (err) {
@@ -95,7 +96,8 @@ export const SubscriptionProvider = ({ children }) => {
     isSubscribed: currentSubscription?.active || false,
     currentPlan: currentSubscription?.plan || null,
     expiresAt: currentSubscription?.currentPeriodEnd || null,
-    willCancel: currentSubscription?.cancelAtPeriodEnd || false
+    willCancel: currentSubscription?.cancelAtPeriodEnd || false,
+    isInTrial: currentSubscription?.trialEnd && new Date(currentSubscription.trialEnd) > new Date()
   };
 
   return (

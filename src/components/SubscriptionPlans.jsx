@@ -19,12 +19,15 @@ const SubscriptionPlans = ({ onStartTrial }) => {
       price: 16.99,
       interval: 'month',
       features: [
+        '7-day free trial (payment info required)',
+        'Auto-bills after trial ends',
         'Unlimited transcriptions',
         'Advanced AI processing',
         'Priority support',
         'Cancel anytime'
       ],
-      stripePriceId: 'prod_S5zkNoVALMjxHI' // This would be the actual Stripe price ID in production
+      stripePriceId: 'prod_S5zkNoVALMjxHI', // This would be the actual Stripe price ID in production
+      trialDays: 7
     },
     {
       id: 'yearly',
@@ -32,12 +35,15 @@ const SubscriptionPlans = ({ onStartTrial }) => {
       price: 156,
       interval: 'year',
       features: [
+        '7-day free trial (payment info required)',
+        'Auto-bills after trial ends',
         'Unlimited transcriptions',
         'Advanced AI processing',
         'Priority support',
         'Cancel anytime'
       ],
-      stripePriceId: 'prod_S5zlpKPejeenE4' // This would be the actual Stripe price ID in production
+      stripePriceId: 'prod_S5zlpKPejeenE4', // This would be the actual Stripe price ID in production
+      trialDays: 7
     }
   ];
 
