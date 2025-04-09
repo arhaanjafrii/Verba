@@ -22,6 +22,8 @@ const LandingPage = () => {
   const [demoStep, setDemoStep] = useState(1); // 1: Recording, 2: Style Selection
   const [demoAudioBlob, setDemoAudioBlob] = useState(null);
   const [processedText, setProcessedText] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioPlayerRef = useRef(null);
   
   // Refs for recording
   const recorderRef = useRef(null);
@@ -159,7 +161,9 @@ const LandingPage = () => {
       // Move to style selection step
       setDemoStep(2);
       
-      // Don't automatically process with style yet - wait for user selection
+      // Clear processed text when moving to style selection
+      // This ensures results aren't displayed until a style is selected
+      setProcessedText('');
     } catch (error) {
       console.error('Demo transcription error:', error);
       setDemoError('Failed to transcribe audio. Please try again.');
@@ -370,21 +374,35 @@ const LandingPage = () => {
                         className="w-16 h-16 rounded-full bg-blue-100 text-primary-600 flex items-center justify-center"
                         onClick={() => {
                           if (audioURL) {
-                            // Create audio element and ensure it plays
-                            const audio = new Audio();
-                            audio.src = audioURL;
-                            audio.oncanplaythrough = () => {
-                              audio.play().catch(err => console.error('Audio playback error:', err));
-                            };
-                            audio.onerror = (e) => console.error('Audio loading error:', e);
+                            if (!audioPlayerRef.current) {
+                              // Create audio element if it doesn't exist
+                              audioPlayerRef.current = new Audio(audioURL);
+                              audioPlayerRef.current.onended = () => setIsPlaying(false);
+                            }
+                            
+                            if (isPlaying) {
+                              // Pause the audio
+                              audioPlayerRef.current.pause();
+                              setIsPlaying(false);
+                            } else {
+                              // Play the audio
+                              audioPlayerRef.current.play().catch(err => console.error('Audio playback error:', err));
+                              setIsPlaying(true);
+                            }
                           }
                         }}
                         disabled={!audioURL}
                       >
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        {isPlaying ? (
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
                       </button>
                       
                       <button 
@@ -478,8 +496,8 @@ const LandingPage = () => {
                           
                           {/* Transcript Style */}
                           <button 
-                            onClick={() => handleStyleChange('format')}
-                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'format' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                            onClick={() => handleStyleChange('transcript')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'transcript' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
                           >
                             <span className="text-primary-600 mr-3">
                               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -492,10 +510,10 @@ const LandingPage = () => {
                             </div>
                           </button>
                           
-                          {/* Summary Style */}
+                          {/* Summarize Style */}
                           <button 
-                            onClick={() => handleStyleChange('summary')}
-                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'summary' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                            onClick={() => handleStyleChange('summarize')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'summarize' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
                           >
                             <span className="text-primary-600 mr-3">
                               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -503,15 +521,31 @@ const LandingPage = () => {
                               </svg>
                             </span>
                             <div>
-                              <p className="font-medium">Summary</p>
+                              <p className="font-medium">Summarize</p>
                               <p className="text-sm text-gray-500">Concise summary of key points.</p>
+                            </div>
+                          </button>
+                          
+                          {/* Email Style */}
+                          <button 
+                            onClick={() => handleStyleChange('email')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'email' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                          >
+                            <span className="text-primary-600 mr-3">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            </span>
+                            <div>
+                              <p className="font-medium">Email</p>
+                              <p className="text-sm text-gray-500">Formatted as a professional email.</p>
                             </div>
                           </button>
                           
                           {/* Bullet Points Style */}
                           <button 
-                            onClick={() => handleStyleChange('bullet_points')}
-                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'bullet_points' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
+                            onClick={() => handleStyleChange('bullets')}
+                            className={`w-full p-4 rounded-lg border text-left flex items-center ${selectedStyle === 'bullets' ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}
                           >
                             <span className="text-primary-600 mr-3">
                               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -552,10 +586,13 @@ const LandingPage = () => {
                     )}
                     
                     {/* Results Display - After processing */}
-                    {demoStep === 2 && !isProcessing && (
+                    {demoStep === 2 && !isProcessing && processedText && (
                       <div className="w-full mt-6 bg-gray-50 p-6 rounded-lg border border-gray-200">
                         <h4 className="text-lg font-semibold mb-3">Result:</h4>
-                        <p className="whitespace-pre-wrap">{processedText || demoTranscription}</p>
+                        <p className="whitespace-pre-wrap">{processedText}</p>
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                          <p className="text-sm text-blue-700">This is just a demo. The full experience includes more advanced styles and customization.</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -792,23 +829,7 @@ const LandingPage = () => {
             </motion.div>
           </div>
 
-          <motion.div 
-            className="text-center mt-16"
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <Link to="/transcribe">
-              <motion.button 
-                className="btn-primary glow-effect text-lg px-8 py-4"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Try It Now
-              </motion.button>
-            </Link>
-          </motion.div>
+          {/* 'Try it now' button removed as requested */}
         </div>
       </section>
 

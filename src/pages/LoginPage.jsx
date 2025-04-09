@@ -49,7 +49,7 @@ const LoginPage = () => {
       }
       
       if (result.success) {
-        navigate('/');
+        navigate('/dashboard');
       } else {
         setError(result.error || 'Authentication failed');
       }

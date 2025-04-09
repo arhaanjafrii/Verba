@@ -58,37 +58,37 @@ const DashboardPage = () => {
   // Settings modal component
   const SettingsModal = () => (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto py-10"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
       <motion.div 
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden"
+        className="bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 overflow-hidden"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
       >
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Settings</h2>
+            <h2 className="text-xl font-bold">Settings</h2>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-500 hover:text-gray-700"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
         
-        <div className="p-6 space-y-8">
+        <div className="p-4 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Preferences */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Preferences</h3>
-            <p className="text-sm text-gray-600 mb-4">These settings will be used as defaults for new notes.</p>
+            <h3 className="text-lg font-semibold mb-3">Preferences</h3>
+            <p className="text-sm text-gray-600 mb-3">These settings will be used as defaults for new notes.</p>
             
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Microphone Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Microphone</label>
@@ -114,38 +114,14 @@ const DashboardPage = () => {
                 </div>
               </div>
               
-              {/* Default Style */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Default Style</label>
-                <select
-                  value={defaultStyle}
-                  onChange={(e) => setDefaultStyle(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md"
-                >
-                  <option value="note">Note</option>
-                  <option value="summary">Summary</option>
-                  <option value="bullets">Bullet Points</option>
-                </select>
-              </div>
-              
-              {/* Custom Words */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Custom words</label>
-                <textarea
-                  value={customWords}
-                  onChange={(e) => setCustomWords(e.target.value.slice(0, 240))}
-                  placeholder="List of custom words/expressions the AI can use, separated by a comma (240 characters max)"
-                  className="w-full p-2 border border-gray-300 rounded-md h-24"
-                />
-                <p className="text-sm text-gray-500 mt-1">{240 - customWords.length} characters remaining</p>
-              </div>
+              {/* Default Style and Custom Words sections removed as requested */}
             </div>
           </div>
           
           {/* Account Info */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Account Info</h3>
-            <p className="text-sm text-gray-600 mb-4">Update your account information.</p>
+            <h3 className="text-lg font-semibold mb-3">Account Info</h3>
+            <p className="text-sm text-gray-600 mb-3">Update your account information.</p>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -154,6 +130,10 @@ const DashboardPage = () => {
                   <input
                     type="text"
                     value={user?.first_name || ''}
+                    onChange={(e) => {
+                      // This would normally update the user profile
+                      console.log('First name updated:', e.target.value);
+                    }}
                     className="w-full p-2 border border-gray-300 rounded-md"
                     placeholder="First name"
                   />
@@ -163,6 +143,10 @@ const DashboardPage = () => {
                   <input
                     type="text"
                     value={user?.last_name || ''}
+                    onChange={(e) => {
+                      // This would normally update the user profile
+                      console.log('Last name updated:', e.target.value);
+                    }}
                     className="w-full p-2 border border-gray-300 rounded-md"
                     placeholder="Last name"
                   />
@@ -183,8 +167,8 @@ const DashboardPage = () => {
           
           {/* Password Change */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Create Password</h3>
-            <p className="text-sm text-gray-600 mb-4">Define or change your account's permanent password.</p>
+            <h3 className="text-lg font-semibold mb-3">Create Password</h3>
+            <p className="text-sm text-gray-600 mb-3">Define or change your account's permanent password.</p>
             
             <div className="space-y-4">
               <div>
@@ -206,24 +190,23 @@ const DashboardPage = () => {
             </div>
           </div>
           
-          {/* Subscription Info */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Plan</h3>
-            <p className="text-sm text-gray-600 mb-4">Manage your subscription.</p>
-            
-            <div className="p-4 bg-gray-50 rounded-lg">
-              {currentSubscription?.active ? (
-                <p>You are on the {currentSubscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} plan.</p>
-              ) : (
-                <p>You are on the Free plan with basic features.</p>
-              )}
-            </div>
-          </div>
-          
           {/* Other Links */}
           <div className="space-y-2">
             <a href="/privacy" className="block text-primary-600 hover:text-primary-700">Privacy Policy</a>
             <a href="/terms" className="block text-primary-600 hover:text-primary-700">Terms of Service</a>
+          </div>
+          
+          {/* Logout Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={logout}
+              className="w-full p-2 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Log Out
+            </button>
           </div>
         </div>
       </motion.div>
@@ -255,13 +238,13 @@ const DashboardPage = () => {
               <ul className="space-y-2">
                 <li>
                   <button 
-                    onClick={() => setActiveTab('dashboard')}
-                    className={`w-full text-left px-4 py-3 rounded-lg flex items-center ${activeTab === 'dashboard' ? 'bg-primary-100 text-primary-800' : 'text-gray-700 hover:bg-gray-100'}`}
+                    onClick={() => setActiveTab('recorder')}
+                    className={`w-full text-left px-4 py-3 rounded-lg flex items-center ${activeTab === 'recorder' ? 'bg-primary-100 text-primary-800' : 'text-gray-700 hover:bg-gray-100'}`}
                   >
                     <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
                     </svg>
-                    Dashboard
+                    Recorder
                   </button>
                 </li>
                 <li>
@@ -309,7 +292,7 @@ const DashboardPage = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            {activeTab === 'dashboard' && (
+            {activeTab === 'recorder' && (
               <motion.div
                 variants={containerVariants}
                 initial="hidden"
@@ -322,11 +305,70 @@ const DashboardPage = () => {
                   </p>
                   
                   {currentSubscription?.active ? (
-                    <Link to="/transcribe">
-                      <button className="btn-primary text-lg px-6 py-3">
-                        Start Transcribing
-                      </button>
-                    </Link>
+                    <div className="bg-gray-50 rounded-xl p-8 flex flex-col items-center justify-center">
+                      {/* Audio Visualization */}
+                      <div className="w-full h-24 bg-blue-50 rounded-lg mb-6 flex items-center justify-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-full">
+                          <div className="h-full w-full flex items-center">
+                            <div className="flex items-end justify-around w-full h-full px-2">
+                              {Array.from({ length: 30 }).map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className={`w-1 bg-primary-400 rounded-full h-1`}
+                                  style={{ 
+                                    animationDelay: `${i * 0.05}s`
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-gray-400 z-10">Click the microphone to start recording</p>
+                      </div>
+                      
+                      {/* Timer */}
+                      <div className="mb-6 text-center">
+                        <p className="text-sm text-gray-500 mb-1">Limit: 02:00</p>
+                        <p className="text-4xl font-mono font-bold">00:00</p>
+                      </div>
+                      
+                      {/* Controls */}
+                      <div className="flex items-center justify-center space-x-6 mb-6">
+                        <button 
+                          className="w-16 h-16 rounded-full bg-blue-100 text-primary-600 flex items-center justify-center"
+                          disabled={true}
+                        >
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
+                        
+                        <button 
+                          className="w-24 h-24 rounded-full flex items-center justify-center shadow-lg bg-primary-500 text-white"
+                        >
+                          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                          </svg>
+                        </button>
+                        
+                        <button 
+                          className="w-16 h-16 rounded-full bg-blue-100 text-primary-600 flex items-center justify-center"
+                          disabled={true}
+                        >
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <p className="text-center text-gray-400 text-sm mt-4">
+                        <svg className="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Click the microphone to start recording (2 hour limit)
+                      </p>
+                    </div>
                   ) : (
                     <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md mb-6">
                       <div className="flex">

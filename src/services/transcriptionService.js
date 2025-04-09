@@ -211,6 +211,8 @@ export const processTranscription = async (text, task = 'format') => {
       
       // Make the API request to Hugging Face
       // Using a more reliable model for text processing
+      // IMPORTANT: We must always use the Hugging Face model for processing
+      // and never return the raw Whisper output
       const response = await fetch('https://api-inference.huggingface.co/models/google/flan-t5-xl', {
         method: 'POST',
         headers: {
@@ -239,15 +241,42 @@ export const processTranscription = async (text, task = 'format') => {
         } catch (e) {
           errorMessage = errorText || errorMessage;
         }
-        throw new Error(errorMessage);
+        // Instead of throwing, we'll retry with a different model
+        console.warn('Error with primary model, trying fallback model:', errorMessage);
+        
+        // Try with a fallback model
+        const fallbackResponse = await fetch('https://api-inference.huggingface.co/models/google/flan-t5-base', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 1024,
+              temperature: 0.7,
+              top_p: 0.95,
+              do_sample: true
+            }
+          })
+        });
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(errorMessage); // Now we can throw if both models fail
+        }
+        
+        const fallbackResult = await fallbackResponse.json();
+        return fallbackResult[0]?.generated_text || formatBasicText(text);
       }
       
       const result = await response.json();
       return result[0]?.generated_text || formatBasicText(text);
       
     } catch (localError) {
-      console.warn('Error using local model:', localError);
-      // Fall back to basic formatting if local model fails
+      console.warn('Error using Hugging Face models:', localError);
+      // Even in the fallback case, we should never return raw Whisper output
+      // Apply at least basic formatting to the text
       return formatBasicText(text);
     }
   } catch (error) {

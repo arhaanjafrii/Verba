@@ -58,20 +58,21 @@ const SubscriptionPlans = ({ onStartTrial }) => {
     try {
       const selectedPlanData = plans.find(plan => plan.id === selectedPlan);
       
+      // Always proceed to checkout directly regardless of callback
+      const checkoutUrl = await createCheckoutSession(
+        selectedPlanData.stripePriceId,
+        user.id,
+        user.email,
+        true // isTrial
+      );
+      
+      // Notify parent component if callback exists
       if (onStartTrial) {
         onStartTrial(selectedPlanData);
-      } else {
-        // If no callback is provided, proceed to checkout directly
-        const checkoutUrl = await createCheckoutSession(
-          selectedPlanData.stripePriceId,
-          user.id,
-          user.email,
-          true // isTrial
-        );
-        
-        // Redirect to Stripe checkout
-        window.location.href = checkoutUrl;
       }
+      
+      // Redirect to Stripe checkout
+      window.location.href = checkoutUrl;
     } catch (err) {
       console.error('Error starting trial:', err);
       setError('Failed to start trial. Please try again.');

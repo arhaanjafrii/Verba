@@ -60,7 +60,7 @@ const Navbar = () => {
             </svg>
           </motion.div>
           <motion.div 
-            className="text-2xl font-bold gradient-text"
+            className="text-xl font-bold gradient-text"
             whileHover={{ scale: 1.05 }}
             transition={{ type: 'spring', stiffness: 300 }}
           >
@@ -70,27 +70,32 @@ const Navbar = () => {
 
         {!location.pathname.startsWith('/dashboard') && (
           <nav>
-            <ul className="flex space-x-8">
-              <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
+            <ul className="flex space-x-6">
+              <motion.li whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }}>
                 <Link 
                   to="/" 
-                  className={`text-2xl font-bold transition-colors duration-300 ${location.pathname === '/' ? 'text-primary-600' : 'text-gray-800 hover:text-primary-500'}`}
+                  className={`text-lg font-bold transition-colors duration-300 ${location.pathname === '/' ? 'text-primary-600' : 'text-gray-800 hover:text-primary-500'}`}
+                  onClick={() => {
+                    if (location.pathname === '/') {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
                 >
                   Home
                 </Link>
               </motion.li>
-              <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
+              <motion.li whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }}>
                 <a 
                   href={location.pathname === '/' ? '#pricing' : '/#pricing'}
-                  className="text-2xl font-bold text-gray-800 hover:text-primary-500 transition-colors duration-300"
+                  className="text-lg font-bold text-gray-800 hover:text-primary-500 transition-colors duration-300"
                 >
                   Pricing
                 </a>
               </motion.li>
-              <motion.li whileHover={{ scale: 1.1 }} transition={{ type: 'spring', stiffness: 300 }}>
+              <motion.li whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }}>
                 <a 
                   href={location.pathname === '/' ? '#features' : '/#features'}
-                  className="text-2xl font-bold text-gray-800 hover:text-primary-500 transition-colors duration-300"
+                  className="text-lg font-bold text-gray-800 hover:text-primary-500 transition-colors duration-300"
                 >
                   Features
                 </a>
@@ -102,11 +107,20 @@ const Navbar = () => {
         <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="hidden sm:block"
+                >
+                  <Link to="/dashboard" className="btn-primary glow text-base px-5 py-2 rounded-lg shadow-lg bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700">
+                    Go to App
+                  </Link>
+                </motion.div>
                 {currentSubscription?.active && (
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="hidden sm:block"
+                    className="hidden sm:block ml-2"
                   >
                     <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
                       {currentSubscription.plan === 'yearly' ? 'Yearly' : 'Monthly'} Plan
@@ -123,7 +137,7 @@ const Navbar = () => {
                 >
                   <button 
                     onClick={() => setShowPlansModal(true)}
-                    className="btn-secondary text-xl px-6 py-3"
+                    className="btn-secondary text-base px-5 py-2"
                   >
                     Get Verba
                   </button>
@@ -133,7 +147,7 @@ const Navbar = () => {
                   whileTap={{ scale: 0.95 }}
                   className="hidden sm:block"
                 >
-                  <Link to="/login" className="btn-primary glow text-xl px-6 py-3 rounded-lg shadow-lg bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700">
+                  <Link to="/login" className="btn-primary glow text-base px-5 py-2 rounded-lg shadow-lg bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700">
                     Sign In
                   </Link>
                 </motion.div>

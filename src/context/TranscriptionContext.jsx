@@ -35,7 +35,10 @@ export const TranscriptionProvider = ({ children }) => {
         const processed = await processTranscription(text, options.processTask);
         setProcessedText(processed);
       } else {
-        setProcessedText(text);
+        // Always apply at least basic formatting to the transcription
+        // This ensures the raw Whisper output is never displayed as the final result
+        const processed = await processTranscription(text, 'format');
+        setProcessedText(processed);
       }
       
       return text;

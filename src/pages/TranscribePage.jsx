@@ -27,7 +27,7 @@ const TranscribePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentSubscription } = useSubscription();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   
   const fileInputRef = useRef(null);
   const timerRef = useRef(null);
@@ -241,22 +241,51 @@ const TranscribePage = () => {
     if (!audioFile) return;
     
     try {
-      // Perform the actual transcription
-      console.log('Transcribing audio...');
+      // Perform the actual transcription with processing
+      console.log('Processing transcription with selected style:', processingTask);
       
-      const result = await transcribe(audioFile, {
-        processTask: processingTask
-      });
+      // Process the transcription with the selected style
+      // Make sure we're using the Hugging Face model for processing
+      // The raw Whisper output should never be displayed as the final result
+      setIsProcessing(true);
+      const result = await process(transcription, processingTask);
+      setIsProcessing(false);
+      
+      // Return the result but don't automatically move to step 3
+      // The button click handler will handle navigation
+      return result;
+    } catch (err) {
+      console.error('Error processing transcription:', err);
+      showToastMessage('Error processing transcription: ' + err.message);
+      setIsProcessing(false);
+      throw err; // Re-throw to allow the caller to handle it
+    }
+  };
+  
+  // Separate function to handle just the transcription without processing
+  const handleInitialTranscribe = async () => {
+    if (!audioFile) return;
+    
+    try {
+      // Transcribe with basic formatting to ensure we don't show raw Whisper output
+      console.log('Transcribing audio with basic formatting...');
+      
+      // Call the transcribe function with a default format processTask
+      // This ensures we get properly formatted text, not raw Whisper output
+      setIsProcessing(true);
+      const result = await transcribe(audioFile, { processTask: 'format' });
+      setIsProcessing(false);
       
       if (result) {
-        // Move to the next step if successful
-        setCurrentStep(3);
+        // Move to the style selection step if successful
+        setCurrentStep(2);
       } else if (error) {
         showToastMessage(error);
       }
     } catch (err) {
       console.error('Error transcribing audio:', err);
       showToastMessage('Error transcribing audio: ' + err.message);
+      setIsProcessing(false);
     }
   };
 
@@ -277,7 +306,12 @@ const TranscribePage = () => {
     
     // If we already have a transcription, process it with the new task
     if (transcription && !isProcessing) {
-      await process(transcription, task);
+      try {
+        await process(transcription, task);
+      } catch (err) {
+        console.error('Error processing with new style:', err);
+        showToastMessage('Error applying style: ' + err.message);
+      }
     }
   };
 
@@ -367,31 +401,31 @@ const TranscribePage = () => {
   // Settings modal component
   const SettingsModal = () => (
     <motion.div
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto py-10"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
       <motion.div 
-        className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden"
+        className="bg-white rounded-xl shadow-xl w-full max-w-xl mx-4 overflow-hidden"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
       >
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Settings</h2>
+            <h2 className="text-xl font-bold">Settings</h2>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-500 hover:text-gray-700"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         </div>
         
-        <div className="p-6 space-y-8">
+        <div className="p-4 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Preferences */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Preferences</h3>
@@ -517,8 +551,8 @@ const TranscribePage = () => {
           
           {/* Subscription Info */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Plan</h3>
-            <p className="text-sm text-gray-600 mb-4">Manage your subscription.</p>
+            <h3 className="text-lg font-semibold mb-3">Plan</h3>
+            <p className="text-sm text-gray-600 mb-3">Manage your subscription.</p>
             
             <div className="p-4 bg-gray-50 rounded-lg">
               {currentSubscription?.active ? (
@@ -533,6 +567,32 @@ const TranscribePage = () => {
           <div className="space-y-2">
             <a href="/privacy" className="block text-primary-600 hover:text-primary-700">Privacy Policy</a>
             <a href="/terms" className="block text-primary-600 hover:text-primary-700">Terms of Service</a>
+          </div>
+          
+          {/* Logout Button */}
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                // Close the settings modal first to prevent white screen
+                setShowSettings(false);
+                // Then logout after a short delay
+                setTimeout(() => {
+                  if (typeof logout === 'function') {
+                    logout();
+                  } else {
+                    console.error('Logout function is not available');
+                    // Fallback: redirect to login page
+                    navigate('/login');
+                  }
+                }, 300); // Increased delay to ensure modal closes completely
+              }}
+              className="w-full p-2 bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors flex items-center justify-center"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Log Out
+            </button>
           </div>
         </div>
       </motion.div>
@@ -695,14 +755,7 @@ const TranscribePage = () => {
                           <div className="text-center">
                             <motion.button
                               className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center hover:bg-red-200 transition-colors"
-                              onClick={() => {
-                                setAudioFile(null);
-                                setUploadFileName('');
-                                if (audioURL) {
-                                  AudioRecorder.revokeAudioURL(audioURL);
-                                  setAudioURL('');
-                                }
-                              }}
+                              onClick={startOver}
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                             >
@@ -727,11 +780,12 @@ const TranscribePage = () => {
                         <div className="mt-6">
                           <motion.button
                             className="btn-primary w-full"
-                            onClick={goToNextStep}
+                            onClick={handleInitialTranscribe}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
+                            disabled={isProcessing}
                           >
-                            Next: Choose Format
+                            {isProcessing ? 'Transcribing...' : 'Next: Choose Format'}
                           </motion.button>
                         </div>
                       )}
@@ -756,8 +810,29 @@ const TranscribePage = () => {
               
               <div className="mb-8">
                 <div className="bg-gray-50 rounded-lg p-6">
+                  {/* Delete recording button for step 2 */}
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={startOver}
+                      className="text-red-500 hover:text-red-700 flex items-center"
+                    >
+                      <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete Recording
+                    </button>
+                  </div>
+                  
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium mb-2">Text Formatting</h3>
+                    
+                    {/* Show a preview of the raw transcription */}
+                    {transcription && (
+                      <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+                        <h4 className="text-sm font-medium text-gray-500 mb-2">Raw Transcription Preview:</h4>
+                        <p className="text-sm text-gray-600 line-clamp-3">{transcription.substring(0, 150)}...</p>
+                      </div>
+                    )}
                     
                     <div className="flex items-center space-x-2">
                       <input 
@@ -868,13 +943,26 @@ const TranscribePage = () => {
                       onClick={goToPreviousStep}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
+                      disabled={isProcessing}
                     >
                       Back
                     </motion.button>
                     
                     <motion.button
                       className="btn-primary"
-                      onClick={handleTranscribe}
+                      onClick={async () => {
+                        try {
+                          // Process with the selected style
+                          await handleTranscribe();
+                          // Only move to step 3 if processing was successful
+                          if (!error) {
+                            setCurrentStep(3);
+                          }
+                        } catch (err) {
+                          console.error('Processing error:', err);
+                          showToastMessage('Error processing: ' + (err.message || 'Unknown error'));
+                        }
+                      }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       disabled={isProcessing}
@@ -901,6 +989,19 @@ const TranscribePage = () => {
               
               <div className="mb-8">
                 <div className="bg-gray-50 rounded-lg p-6">
+                  {/* Delete recording button for step 3 */}
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={startOver}
+                      className="text-red-500 hover:text-red-700 flex items-center"
+                    >
+                      <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete Recording
+                    </button>
+                  </div>
+                  
                   {isProcessing ? (
                     <div className="text-center py-8">
                       <div className="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
