@@ -30,16 +30,14 @@ export const TranscriptionProvider = ({ children }) => {
       const text = await transcribeAudio(audioFile, options);
       setTranscription(text);
       
-      // Process the transcription if needed
-      if (options.processTask) {
-        const processed = await processTranscription(text, options.processTask);
-        setProcessedText(processed);
-      } else {
-        // Always apply at least basic formatting to the transcription
-        // This ensures the raw Whisper output is never displayed as the final result
-        const processed = await processTranscription(text, 'format');
-        setProcessedText(processed);
-      }
+      // IMPORTANT: Always process the transcription through the Google Flan model
+      // Never display the raw Whisper output directly
+      const processTask = options.processTask || 'format';
+      console.log('Processing transcription with task:', processTask);
+      
+      // Process the transcription with Google Flan model
+      const processed = await processTranscription(text, processTask);
+      setProcessedText(processed);
       
       return text;
     } catch (err) {

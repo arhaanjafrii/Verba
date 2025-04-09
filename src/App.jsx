@@ -7,6 +7,7 @@ import LandingPage from './pages/LandingPage';
 import TranscribePage from './pages/TranscribePage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // Components
 import Navbar from './components/Navbar';
@@ -48,6 +49,8 @@ function App() {
                       />
                     } 
                   />
+                  {/* Catch-all route for 404 errors */}
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </AnimatePresence>
             </main>

@@ -78,7 +78,7 @@ export const getSubscriptionPlans = async () => {
         'Priority support',
         'Cancel anytime'
       ],
-      stripePriceId: 'price_monthly' // This would be the actual Stripe price ID in production
+      stripePriceId: 'prod_S5zkNoVALMjxHI' // This would be the actual Stripe price ID in production
     },
     {
       id: 'yearly',
@@ -91,7 +91,7 @@ export const getSubscriptionPlans = async () => {
         'Higher usage limits',
         'Premium support'
       ],
-      stripePriceId: 'price_yearly' // This would be the actual Stripe price ID in production
+      stripePriceId: 'prod_S5zlpKPejeenE4' // This would be the actual Stripe price ID in production
     }
   ];
 };
