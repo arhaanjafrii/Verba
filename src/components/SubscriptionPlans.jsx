@@ -158,10 +158,10 @@ const SubscriptionPlans = ({ onStartTrial }) => {
           onClick={handleStartTrial}
           disabled={isLoading}
         >
-          {isLoading ? 'Processing...' : 'Start Free Trial'}
+          {isLoading ? 'Processing...' : 'Start 7-Day Free Trial'}
         </button>
         <p className="text-sm text-gray-500 mt-2">
-          No credit card required for trial. Cancel anytime.
+          Credit card required for trial. Cancel anytime before trial ends to avoid charges.
         </p>
       </div>
     </div>

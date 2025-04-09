@@ -29,7 +29,7 @@ const getStripe = () => {
  * @param {number} trialDays - Number of days for the trial period (default: 7)
  * @returns {Promise<string>} - The checkout session URL
  */
-export const createCheckoutSession = async (priceId, userId, customerEmail, isTrial = false, trialDays = 7) => {
+export const createCheckoutSession = async (priceId, userId, customerEmail, isTrial = true, trialDays = 7) => {
   try {
     // In a real implementation, this would call your backend API
     // For now, we'll implement a client-side checkout flow for development
@@ -59,8 +59,8 @@ export const createCheckoutSession = async (priceId, userId, customerEmail, isTr
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Store checkout information for development purposes
-    await storeCheckoutInfo(userId, priceId);
+    // Store checkout information for development purposes with trial information
+    await storeCheckoutInfo(userId, priceId, isTrial, trialDays);
     
     return '/transcribe?checkout=success&plan=' + priceId;
   } catch (error) {
@@ -124,22 +124,38 @@ export const checkSubscriptionStatus = async (userId) => {
       const checkoutData = JSON.parse(storedCheckout);
       const now = new Date();
       
-      // Calculate expiration date (30 days from checkout for monthly, 365 for yearly)
-      const checkoutDate = new Date(checkoutData.date);
-      const planType = checkoutData.plan.includes('yearly') ? 'yearly' : 'monthly';
-      const daysToAdd = planType === 'yearly' ? 365 : 30;
-      const expirationDate = new Date(checkoutDate);
-      expirationDate.setDate(expirationDate.getDate() + daysToAdd);
+      // Use the stored period end date if available
+      let currentPeriodEnd;
+      if (checkoutData.currentPeriodEnd) {
+        currentPeriodEnd = new Date(checkoutData.currentPeriodEnd);
+      } else {
+        // Fallback calculation if not available
+        const checkoutDate = new Date(checkoutData.date);
+        const planType = checkoutData.plan === 'yearly' ? 'yearly' : 'monthly';
+        const daysToAdd = planType === 'yearly' ? 365 : 30;
+        currentPeriodEnd = new Date(checkoutDate);
+        currentPeriodEnd.setDate(checkoutDate.getDate() + daysToAdd);
+      }
+      
+      // Parse trial end date if it exists
+      let trialEnd = null;
+      if (checkoutData.trialEnd) {
+        trialEnd = new Date(checkoutData.trialEnd);
+      }
       
       // Check if subscription is still active
-      const isActive = now < expirationDate;
+      const isActive = now < currentPeriodEnd;
+      
+      // Check if currently in trial period
+      const isInTrial = trialEnd ? now < trialEnd : false;
       
       return {
         active: isActive,
-        plan: planType,
-        currentPeriodEnd: expirationDate.toISOString(),
-        cancelAtPeriodEnd: false,
-        trialEnd: null
+        plan: checkoutData.plan,
+        currentPeriodEnd: currentPeriodEnd.toISOString(),
+        cancelAtPeriodEnd: checkoutData.cancelAtPeriodEnd || false,
+        trialEnd: trialEnd ? trialEnd.toISOString() : null,
+        isInTrial: isInTrial
       };
     }
     
@@ -149,7 +165,8 @@ export const checkSubscriptionStatus = async (userId) => {
       plan: null,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
-      trialEnd: null
+      trialEnd: null,
+      isInTrial: false
     };
   } catch (error) {
     console.error('Error checking subscription status:', error);
@@ -159,7 +176,8 @@ export const checkSubscriptionStatus = async (userId) => {
       plan: null,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
-      trialEnd: null
+      trialEnd: null,
+      isInTrial: false
     };
   }
 };
@@ -168,15 +186,33 @@ export const checkSubscriptionStatus = async (userId) => {
  * Store checkout information for development purposes
  * @param {string} userId - The user ID
  * @param {string} planId - The plan ID
+ * @param {boolean} isTrial - Whether this is a trial subscription
+ * @param {number} trialDays - Number of days for the trial period
  * @returns {Promise<void>}
  */
-export const storeCheckoutInfo = async (userId, planId) => {
+export const storeCheckoutInfo = async (userId, planId, isTrial = true, trialDays = 7) => {
   try {
+    // Get current date
+    const now = new Date();
+    
+    // Calculate trial end date
+    const trialEndDate = new Date(now);
+    trialEndDate.setDate(now.getDate() + trialDays);
+    
+    // Calculate subscription end date based on plan type
+    const planType = planId.includes('yearly') ? 'yearly' : 'monthly';
+    const subscriptionDays = planType === 'yearly' ? 365 : 30;
+    const subscriptionEndDate = new Date(now);
+    subscriptionEndDate.setDate(now.getDate() + subscriptionDays);
+    
     // Store checkout information in localStorage for development
     const checkoutInfo = {
-      date: new Date().toISOString(),
-      plan: planId,
-      status: 'active'
+      date: now.toISOString(),
+      plan: planType,
+      status: 'active',
+      isInTrial: isTrial,
+      trialEnd: isTrial ? trialEndDate.toISOString() : null,
+      currentPeriodEnd: subscriptionEndDate.toISOString()
     };
     
     localStorage.setItem(`checkout_${userId}`, JSON.stringify(checkoutInfo));
